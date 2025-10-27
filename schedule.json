@@ -1,0 +1,32 @@
+{
+  "date": "2025-10-27",
+  "posts": [
+    {
+      "time": "09:53",
+      "completed": false,
+      "scheduled_at": "2025-10-27T23:47:28.246986"
+    },
+    {
+      "time": "12:14",
+      "completed": false,
+      "scheduled_at": "2025-10-27T23:47:28.246986"
+    },
+    {
+      "time": "12:50",
+      "completed": false,
+      "scheduled_at": "2025-10-27T23:47:28.246986"
+    },
+    {
+      "time": "13:23",
+      "completed": false,
+      "scheduled_at": "2025-10-27T23:47:28.246986"
+    },
+    {
+      "time": "18:34",
+      "completed": false,
+      "scheduled_at": "2025-10-27T23:47:28.246986"
+    }
+  ],
+  "posts_completed": 0,
+  "max_posts_per_day": 5
+}
