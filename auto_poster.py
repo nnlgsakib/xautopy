@@ -36,13 +36,45 @@ PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
 
 # --- Global Clients ---
 SEARCH_QUERIES = [
-    "blockchain development",
-    "crypto research",
-    "cryptography news",
-    "web3 innovation",
-    "zero-knowledge proof",
-    "decentralized identity",
-    "smart contract audit"
+    # Crypto Development & Technical
+    "blockchain development breakthroughs",
+    "smart contract innovations and audits", 
+    "Layer 2 scaling solutions updates",
+    "zero-knowledge proof implementations",
+    "cryptography security developments",
+    "web3 development frameworks",
+    "decentralized identity solutions",
+    "cross-chain interoperability protocols",
+    
+    # Crypto News & Market
+    "crypto market analysis and trends",
+    "cryptocurrency regulatory updates",
+    "institutional crypto adoption news",
+    "crypto exchange developments",
+    "DeFi protocol launches and updates",
+    "NFT marketplace trends and sales",
+    "crypto partnership announcements",
+    "blockchain gaming and metaverse",
+    
+    # Influential Personalities & Community
+    "Vitalik Buterin latest statements",
+    "CZ Binance recent announcements", 
+    "crypto Twitter viral discussions",
+    "Satoshi Nakamoto references and theories",
+    "crypto influencer predictions",
+    "blockchain conference highlights",
+    "crypto community debates and opinions",
+    "developer community discussions",
+    
+    # Innovation & Trends
+    "emerging crypto technologies",
+    "blockchain use case innovations",
+    "crypto startup funding rounds",
+    "web3 social media platforms",
+    "decentralized finance innovations",
+    "crypto environmental sustainability",
+    "quantum computing crypto impact",
+    "central bank digital currencies"
 ]
 TWITTER_API = None
 TWITTER_CLIENT = None
@@ -99,24 +131,24 @@ def post_tweet(text: str):
 
 # --- Gemini API Functions ---
 
-def generate_post_with_ai(content_snippets: list) -> str:
+def generate_multiple_posts_with_ai(content_snippets: list, num_posts: int = 2) -> list:
     """
-    Generates a human-like, SEO-optimized X post based on curated content.
-    Uses the gemini-2.0-pro model as requested by the user for high quality.
+    Generates multiple human-like, SEO-optimized X posts based on curated content.
+    Uses the gemini-2.0-pro model to create diverse variations for selection.
     """
     # The client is configured globally, so we only need to check the API key
     if not GEMINI_API_KEY:
         logging.error("Gemini API key not configured for post generation.")
-        return ""
+        return []
     
     # Combine content snippets into a single string for the prompt
     input_content = "\n---\n".join(content_snippets)
     
-    # Enhanced prompt for high-quality, human-like, SEO-optimized post based on Perplexity trends
+    # Enhanced prompt for high-quality, human-like, SEO-optimized posts based on Perplexity trends
     prompt = f"""
     You are a renowned Blockchain Developer, Researcher, and Cryptographer with 10+ years of experience. Your posts consistently go viral and establish thought leadership in the crypto space.
     
-    **Mission:** Transform the latest trend research into a compelling X post that feels authentically human, drives massive engagement, and positions you as an industry authority.
+    **Mission:** Transform the latest trend research into {num_posts} compelling X posts that feel authentically human, drive massive engagement, and position you as an industry authority. Each post should offer a unique angle or perspective on the same trending topic.
     
     **Voice & Tone Guidelines:**
     - Write like a seasoned expert sharing genuine insights from fresh research, not recycled content
@@ -125,6 +157,13 @@ def generate_post_with_ai(content_snippets: list) -> str:
     - Vary between analytical, excited, cautionary, or forward-thinking tones based on the trend
     - Add personality through strategic use of emojis (1-2 max, contextually relevant)
     - Show genuine curiosity and passion for the technology
+    
+    **Variation Strategy:**
+    - Create {num_posts} distinct posts with different angles: technical analysis, market implications, future predictions, historical context, etc.
+    - Use different hooks: bold statements, intriguing questions, surprising insights, predictions, warnings
+    - Vary the emotional tone: excitement, caution, curiosity, confidence, urgency
+    - Different target audiences: developers, investors, general crypto enthusiasts
+    - Mix content types: breaking news, analysis, predictions, educational insights
     
     **Trend-Based Content Strategy:**
     - Lead with the most compelling/surprising element from the research
@@ -142,12 +181,12 @@ def generate_post_with_ai(content_snippets: list) -> str:
     - End with a thought-provoking question that invites expert discussion
     
     **Technical Requirements:**
-    1. Maximum 280 characters (including hashtags, spaces, and emojis)
+    1. Maximum 280 characters per post (including hashtags, spaces, and emojis)
     2. Include 3-4 strategic hashtags that maximize discoverability for the specific trends
     3. Naturally integrate trending keywords and topics from the research
     4. Avoid generic phrases like "exciting news," "check this out," or "thoughts?"
     5. No introductory text - deliver the post content only
-    6. Do not include any prefixes like "Improved post:" or "Here's the post:"
+    6. Do not include any prefixes like "Post 1:" or "Here's the post:"
     
     **Research-Driven Approach:**
     - Synthesize multiple trend insights into one cohesive narrative
@@ -161,7 +200,18 @@ def generate_post_with_ai(content_snippets: list) -> str:
     {input_content}
     ---
     
-    Generate ONLY the final X post that leverages these fresh trends to maximize engagement and establish thought leadership. Return the tweet text directly without any prefixes or explanations.
+    Generate exactly {num_posts} distinct X posts that leverage these fresh trends from different angles. Format your response as follows:
+    
+    POST_1:
+    [First post content]
+    
+    POST_2:
+    [Second post content]
+    
+    POST_3:
+    [Third post content if num_posts > 2]
+    
+    Return only the posts in this exact format without any additional explanations or prefixes.
     """
     
     try:
@@ -191,37 +241,208 @@ def generate_post_with_ai(content_snippets: list) -> str:
             result = response.json()
             generated_text = result['candidates'][0]['content']['parts'][0]['text']
             
-            # Clean up any unwanted prefixes or formatting
-            cleaned_text = generated_text.strip()
+            # Parse multiple posts from the response
+            posts = []
+            lines = generated_text.strip().split('\n')
+            current_post = ""
             
-            # Remove common prefixes that AI might add
-            prefixes_to_remove = [
-                "Improved post:",
-                "Here's the post:",
-                "Tweet:",
-                "Post:",
-                "Here's a tweet:",
-                "Here's an improved version:",
-                "Revised post:",
-                "Updated post:"
-            ]
+            for line in lines:
+                line = line.strip()
+                if line.startswith('POST_'):
+                    # If we have a current post, save it
+                    if current_post:
+                        posts.append(current_post.strip())
+                    current_post = ""
+                elif line and not line.startswith('POST_'):
+                    # Add content to current post
+                    if current_post:
+                        current_post += " " + line
+                    else:
+                        current_post = line
             
-            for prefix in prefixes_to_remove:
-                if cleaned_text.startswith(prefix):
-                    cleaned_text = cleaned_text[len(prefix):].strip()
+            # Don't forget the last post
+            if current_post:
+                posts.append(current_post.strip())
             
-            # Remove quotes if the entire text is wrapped in them
-            if cleaned_text.startswith('"') and cleaned_text.endswith('"'):
-                cleaned_text = cleaned_text[1:-1].strip()
+            # Clean up each post
+            cleaned_posts = []
+            for post in posts:
+                # Remove common prefixes that AI might add
+                prefixes_to_remove = [
+                    "Improved post:",
+                    "Here's the post:",
+                    "Tweet:",
+                    "Post:",
+                    "Here's a tweet:",
+                    "Here's an improved version:",
+                    "Revised post:",
+                    "Updated post:",
+                    "[First post content]",
+                    "[Second post content]",
+                    "[Third post content]"
+                ]
+                
+                cleaned_post = post
+                for prefix in prefixes_to_remove:
+                    if cleaned_post.startswith(prefix):
+                        cleaned_post = cleaned_post[len(prefix):].strip()
+                
+                # Remove quotes if the entire text is wrapped in them
+                if cleaned_post.startswith('"') and cleaned_post.endswith('"'):
+                    cleaned_post = cleaned_post[1:-1].strip()
+                
+                if cleaned_post:  # Only add non-empty posts
+                    cleaned_posts.append(cleaned_post)
             
-            logging.info("AI Post Generated.")
-            return cleaned_text
+            logging.info(f"Generated {len(cleaned_posts)} posts successfully")
+            return cleaned_posts if cleaned_posts else []
         else:
             logging.error(f"Gemini API Error: {response.status_code} - {response.text}")
-            return ""
+            return []
     except Exception as e:
         logging.error(f"Gemini API Generation Error: {e}")
+        return []
+
+def select_best_post_with_ai(posts: list) -> str:
+    """
+    Compares multiple posts and selects the one with the highest viral potential using AI analysis.
+    """
+    if not posts:
+        logging.error("No posts provided for selection")
         return ""
+    
+    if len(posts) == 1:
+        logging.info("Only one post provided, returning it directly")
+        return posts[0]
+    
+    if not GEMINI_API_KEY:
+        logging.error("Gemini API key not configured for post selection.")
+        return posts[0]  # Return first post as fallback
+    
+    # Create numbered list of posts for comparison
+    posts_text = ""
+    for i, post in enumerate(posts, 1):
+        posts_text += f"\nPOST {i}:\n{post}\n"
+    
+    selection_prompt = f"""
+    You are an expert social media strategist and viral content analyst specializing in crypto/blockchain content. Your mission is to analyze these X posts and select the ONE with the highest viral potential and engagement probability.
+
+    **Posts to Analyze:**
+    {posts_text}
+
+    **Evaluation Criteria (Rate each post 1-10):**
+
+    **1. HOOK STRENGTH (40% weight):**
+    - Opening impact and attention-grabbing power
+    - Curiosity generation and scroll-stopping ability
+    - Emotional resonance (excitement, urgency, FOMO, controversy)
+
+    **2. ENGAGEMENT POTENTIAL (30% weight):**
+    - Likelihood to generate replies, retweets, likes
+    - Discussion-starting capability
+    - Shareability and viral mechanics
+
+    **3. AUTHORITY & CREDIBILITY (20% weight):**
+    - Technical depth and expertise demonstration
+    - Industry insight and thought leadership
+    - Authenticity and human voice
+
+    **4. TECHNICAL OPTIMIZATION (10% weight):**
+    - Character count efficiency
+    - Hashtag strategy and discoverability
+    - Call-to-action effectiveness
+
+    **Analysis Process:**
+    1. Evaluate each post against all criteria
+    2. Consider target audience (crypto enthusiasts, developers, investors)
+    3. Assess timing relevance and trend alignment
+    4. Predict engagement patterns and viral potential
+
+    **Response Format:**
+    ANALYSIS:
+    Post 1: [Brief analysis with scores]
+    Post 2: [Brief analysis with scores]
+    Post 3: [Brief analysis with scores if applicable]
+
+    WINNER: POST [NUMBER]
+    REASON: [2-3 sentences explaining why this post has the highest viral potential]
+
+    SELECTED_POST:
+    [Return the exact text of the winning post without any modifications]
+
+    Analyze thoroughly and select the post most likely to go viral and drive maximum engagement.
+    """
+
+    try:
+        # Prepare the request payload
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": selection_prompt
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Set up headers
+        headers = {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': GEMINI_API_KEY
+        }
+        
+        # Make the HTTP request
+        response = requests.post(GEMINI_API_URL, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            generated_text = result['candidates'][0]['content']['parts'][0]['text']
+            
+            # Extract the selected post from the response
+            lines = generated_text.split('\n')
+            selected_post = ""
+            capture_post = False
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith('SELECTED_POST:'):
+                    capture_post = True
+                    continue
+                elif capture_post and line:
+                    if selected_post:
+                        selected_post += " " + line
+                    else:
+                        selected_post = line
+                elif capture_post and not line:
+                    break
+            
+            if selected_post:
+                logging.info("Best post selected successfully using AI analysis")
+                return selected_post.strip()
+            else:
+                # Fallback: try to extract winner number and return corresponding post
+                for line in lines:
+                    if line.startswith('WINNER: POST'):
+                        try:
+                            winner_num = int(line.split('POST')[1].strip())
+                            if 1 <= winner_num <= len(posts):
+                                logging.info(f"Selected post {winner_num} based on AI analysis")
+                                return posts[winner_num - 1]
+                        except (ValueError, IndexError):
+                            pass
+                
+                # Final fallback: return first post
+                logging.warning("Could not parse AI selection, returning first post")
+                return posts[0]
+        else:
+            logging.error(f"Gemini API Error during post selection: {response.status_code} - {response.text}")
+            return posts[0]  # Return first post as fallback
+            
+    except Exception as e:
+        logging.error(f"Error selecting best post with AI: {e}")
+        return posts[0]  # Return first post as fallback
 
 def review_post_with_ai(post_text):
     """Reviews and potentially improves a post using Gemini AI with advanced optimization strategies."""
@@ -340,6 +561,128 @@ def review_post_with_ai(post_text):
 
 # --- Data Curation Functions ---
 
+def generate_dynamic_search_query():
+    """
+    Uses AI to generate dynamic, contextual search queries based on crypto niches and current trends.
+    Returns a targeted search query for trend research.
+    """
+    if not GEMINI_API_KEY:
+        logging.warning("Gemini API key not configured for dynamic query generation. Using fallback.")
+        # Fallback to enhanced static queries
+        enhanced_queries = [
+            "Vitalik Buterin latest tweets and announcements",
+            "CZ Binance recent updates and statements", 
+            "crypto development breakthroughs this week",
+            "blockchain innovation and new protocols",
+            "DeFi protocol launches and updates",
+            "NFT market trends and major sales",
+            "crypto regulatory news and policy changes",
+            "web3 gaming and metaverse developments",
+            "Layer 2 scaling solutions progress",
+            "crypto institutional adoption news",
+            "smart contract security and audits",
+            "decentralized identity solutions",
+            "zero-knowledge proof implementations",
+            "crypto Twitter viral discussions",
+            "major crypto partnerships and collaborations"
+        ]
+        return random.choice(enhanced_queries)
+
+    try:
+        # AI prompt to generate contextual search queries
+        query_prompt = """
+        You are an expert crypto trend researcher and social media strategist. Generate ONE highly specific, engaging search query that would uncover the most viral and trending crypto content right now.
+
+        **Your Expertise Areas:**
+        - Crypto development and technical innovations
+        - Crypto news and market movements  
+        - Crypto trends and viral discussions
+        - Crypto innovations and breakthrough technologies
+        - Influential crypto personalities (Vitalik Buterin, CZ, Satoshi references, etc.)
+        - Cryptography and security developments
+        - Web3 and blockchain development
+        - DeFi, NFTs, and emerging protocols
+        - Regulatory developments and institutional adoption
+        - Community discussions and debates
+
+        **Query Generation Strategy:**
+        - Focus on RECENT developments (last 24-48 hours)
+        - Target HIGH-ENGAGEMENT topics that spark discussion
+        - Include specific names, projects, or events when relevant
+        - Balance technical depth with broad appeal
+        - Consider what's trending on Crypto Twitter right now
+        - Look for controversial, exciting, or breakthrough developments
+
+        **Examples of Great Queries:**
+        - "Vitalik Buterin latest statements on Ethereum roadmap"
+        - "major DeFi protocol exploit or security breakthrough"
+        - "crypto regulatory approval or policy announcement"
+        - "new Layer 2 solution launch or major upgrade"
+        - "institutional crypto adoption or major partnership"
+        - "viral crypto Twitter debate or community discussion"
+
+        Generate ONE specific, targeted search query (maximum 10 words) that would find the most engaging crypto content trending right now:
+        """
+
+        # Prepare the request payload
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": query_prompt
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Set up headers
+        headers = {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': GEMINI_API_KEY
+        }
+        
+        # Make the HTTP request
+        response = requests.post(GEMINI_API_URL, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            generated_query = result['candidates'][0]['content']['parts'][0]['text'].strip()
+            
+            # Clean up the response - remove quotes and extra formatting
+            generated_query = generated_query.replace('"', '').replace("'", '').strip()
+            
+            # Ensure it's not too long
+            if len(generated_query) > 100:
+                generated_query = generated_query[:100].rsplit(' ', 1)[0]
+            
+            logging.info(f"AI generated search query: '{generated_query}'")
+            return generated_query
+        else:
+            logging.error(f"Gemini API Error during query generation: {response.status_code} - {response.text}")
+            # Fallback to enhanced static query
+            enhanced_queries = [
+                "Vitalik Buterin latest tweets and announcements",
+                "CZ Binance recent updates and statements", 
+                "crypto development breakthroughs this week",
+                "blockchain innovation and new protocols",
+                "DeFi protocol launches and updates"
+            ]
+            return random.choice(enhanced_queries)
+            
+    except Exception as e:
+        logging.error(f"Error generating dynamic search query: {e}")
+        # Fallback to enhanced static query
+        enhanced_queries = [
+            "crypto development breakthroughs",
+            "blockchain innovation news",
+            "web3 trending discussions",
+            "crypto regulatory updates",
+            "DeFi protocol developments"
+        ]
+        return random.choice(enhanced_queries)
+
 def get_trending_content():
     """
     Uses Perplexity AI to research current trends in blockchain, crypto, and web3.
@@ -350,9 +693,9 @@ def get_trending_content():
         return []
 
     try:
-        # Select a random query to research
-        query = random.choice(SEARCH_QUERIES)
-        logging.info(f"Researching trends with query: '{query}'")
+        # Generate a dynamic query using AI based on crypto niches
+        query = generate_dynamic_search_query()
+        logging.info(f"Researching trends with AI-generated query: '{query}'")
 
         # Create a comprehensive research prompt for Perplexity
         research_prompt = f"""
@@ -606,21 +949,33 @@ def create_and_post():
         logging.warning("No content found. Skipping post cycle.")
         return False
     
-    # 2. AI Generation
-    raw_post = generate_post_with_ai(content_snippets)
-    if not raw_post:
-        logging.error("AI failed to generate a post. Skipping post cycle.")
+    # 2. AI Generation - Generate multiple posts
+    logging.info("Generating multiple posts with AI...")
+    generated_posts = generate_multiple_posts_with_ai(content_snippets, num_posts=2)
+    if not generated_posts:
+        logging.error("AI failed to generate posts. Skipping post cycle.")
         return False
-    logging.debug(f"Raw Generated Post:\n{raw_post}")
+    logging.info(f"Generated {len(generated_posts)} posts")
+    for i, post in enumerate(generated_posts, 1):
+        logging.debug(f"Generated Post {i}:\n{post}")
     
-    # 3. AI Review
-    final_post = review_post_with_ai(raw_post)
-    if not final_post:
-        logging.error("AI review failed. Skipping post cycle.")
+    # 3. AI Selection - Choose the best post
+    logging.info("Selecting best post with AI...")
+    selected_post = select_best_post_with_ai(generated_posts)
+    if not selected_post:
+        logging.error("AI failed to select best post. Skipping post cycle.")
         return False
+    logging.info(f"Selected Post: {selected_post}")
+    
+    # 4. AI Review - Final optimization
+    logging.info("Reviewing selected post with AI...")
+    final_post = review_post_with_ai(selected_post)
+    if not final_post:
+        logging.warning("AI review failed. Using selected post without review.")
+        final_post = selected_post
     logging.info(f"Final Approved Post: {final_post}")
     
-    # 4. Posting
+    # 5. Posting
     success = post_tweet(final_post)
     logging.info(f"Posting Status: {'SUCCESS' if success else 'FAILURE'}")
     
@@ -645,7 +1000,7 @@ def initialize_clients():
 
 def post_now_mode():
     """
-    Immediate posting mode - generates, reviews, and posts a single tweet then exits.
+    Immediate posting mode - generates multiple posts, selects the best one, reviews it, and posts it.
     """
     logging.info("Running in immediate post mode...")
     
@@ -658,21 +1013,39 @@ def post_now_mode():
             logging.warning("No trending content found. Generating post with general topics.")
             content_snippets = ["Latest developments in blockchain and crypto technology"]
         
-        # Generate post
-        logging.info("Generating post with AI...")
-        post_text = generate_post_with_ai(content_snippets)
+        # Generate multiple posts
+        logging.info("Generating multiple posts with AI...")
+        generated_posts = generate_multiple_posts_with_ai(content_snippets, num_posts=2)
         
-        if not post_text:
+        if not generated_posts:
             logging.error("Failed to generate post content")
             return False
         
+        logging.info(f"Generated {len(generated_posts)} posts")
+        for i, post in enumerate(generated_posts, 1):
+            logging.debug(f"Generated Post {i}:\n{post}")
+        
+        # Select best post
+        logging.info("Selecting best post with AI...")
+        selected_post = select_best_post_with_ai(generated_posts)
+        
+        if not selected_post:
+            logging.warning("Post selection failed, using first generated post")
+            selected_post = generated_posts[0] if generated_posts else ""
+        
+        if not selected_post:
+            logging.error("No valid post content available")
+            return False
+        
+        logging.info(f"Selected Post: {selected_post}")
+        
         # Review post
-        logging.info("Reviewing post with AI...")
-        reviewed_post = review_post_with_ai(post_text)
+        logging.info("Reviewing selected post with AI...")
+        reviewed_post = review_post_with_ai(selected_post)
         
         if not reviewed_post:
-            logging.warning("Post review failed, using original post")
-            reviewed_post = post_text
+            logging.warning("Post review failed, using selected post without review")
+            reviewed_post = selected_post
         
         # Post to Twitter
         logging.info("Posting to Twitter...")
