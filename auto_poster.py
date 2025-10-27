@@ -7,7 +7,7 @@ import logging
 import json
 import argparse
 import requests
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from dotenv import load_dotenv
 
 # Configure basic logging
@@ -79,6 +79,10 @@ SEARCH_QUERIES = [
 TWITTER_API = None
 TWITTER_CLIENT = None
 SCHEDULE_FILE = "schedule.json"
+
+# Global variable to track recent queries for diversity
+RECENT_QUERIES = []
+MAX_RECENT_QUERIES = 10
 
 # --- Twitter API Functions ---
 
@@ -566,6 +570,8 @@ def generate_dynamic_search_query():
     Uses AI to generate dynamic, contextual search queries based on crypto niches and current trends.
     Returns a targeted search query for trend research.
     """
+    global RECENT_QUERIES
+    
     if not GEMINI_API_KEY:
         logging.warning("Gemini API key not configured for dynamic query generation. Using fallback.")
         # Fallback to enhanced static queries
@@ -586,11 +592,26 @@ def generate_dynamic_search_query():
             "crypto Twitter viral discussions",
             "major crypto partnerships and collaborations"
         ]
-        return random.choice(enhanced_queries)
+        # Filter out recently used queries
+        available_queries = [q for q in enhanced_queries if q not in RECENT_QUERIES]
+        if not available_queries:
+            available_queries = enhanced_queries  # Reset if all used
+            RECENT_QUERIES.clear()
+        
+        selected_query = random.choice(available_queries)
+        RECENT_QUERIES.append(selected_query)
+        if len(RECENT_QUERIES) > MAX_RECENT_QUERIES:
+            RECENT_QUERIES.pop(0)
+        return selected_query
 
     try:
+        # Build recent queries context for AI to avoid repetition
+        recent_context = ""
+        if RECENT_QUERIES:
+            recent_context = f"\n\n**IMPORTANT - AVOID THESE RECENT TOPICS:**\n{', '.join(RECENT_QUERIES[-5:])}\n\nGenerate something COMPLETELY DIFFERENT from these recent queries."
+
         # AI prompt to generate contextual search queries
-        query_prompt = """
+        query_prompt = f"""
         You are an expert crypto trend researcher and social media strategist. Generate ONE highly specific, engaging search query that would uncover the most viral and trending crypto content right now.
 
         **Your Expertise Areas:**
@@ -612,14 +633,18 @@ def generate_dynamic_search_query():
         - Balance technical depth with broad appeal
         - Consider what's trending on Crypto Twitter right now
         - Look for controversial, exciting, or breakthrough developments
+        - VARY your topics - explore different crypto niches each time
 
         **Examples of Great Queries:**
-        - "Vitalik Buterin latest statements on Ethereum roadmap"
-        - "major DeFi protocol exploit or security breakthrough"
-        - "crypto regulatory approval or policy announcement"
-        - "new Layer 2 solution launch or major upgrade"
-        - "institutional crypto adoption or major partnership"
-        - "viral crypto Twitter debate or community discussion"
+        - "Solana network outage recovery and validator updates"
+        - "Bitcoin ETF approval impact on institutional adoption"
+        - "Polygon zkEVM mainnet launch and developer migration"
+        - "Coinbase regulatory compliance and SEC developments"
+        - "Chainlink oracle integration with traditional finance"
+        - "Uniswap v4 hooks and concentrated liquidity features"
+        - "Arbitrum token airdrop and governance proposals"
+        - "OpenSea NFT marketplace competition and alternatives"
+        {recent_context}
 
         Generate ONE specific, targeted search query (maximum 10 words) that would find the most engaging crypto content trending right now:
         """
@@ -657,23 +682,37 @@ def generate_dynamic_search_query():
             if len(generated_query) > 100:
                 generated_query = generated_query[:100].rsplit(' ', 1)[0]
             
+            # Track this query to avoid repetition
+            RECENT_QUERIES.append(generated_query)
+            if len(RECENT_QUERIES) > MAX_RECENT_QUERIES:
+                RECENT_QUERIES.pop(0)
+            
             logging.info(f"AI generated search query: '{generated_query}'")
             return generated_query
         else:
             logging.error(f"Gemini API Error during query generation: {response.status_code} - {response.text}")
-            # Fallback to enhanced static query
+            # Fallback to enhanced static query with diversity
             enhanced_queries = [
-                "Vitalik Buterin latest tweets and announcements",
-                "CZ Binance recent updates and statements", 
-                "crypto development breakthroughs this week",
-                "blockchain innovation and new protocols",
-                "DeFi protocol launches and updates"
+                "Solana network performance and validator updates",
+                "Bitcoin Lightning Network adoption progress", 
+                "Ethereum Layer 2 scaling solution developments",
+                "Polygon zkEVM and zero-knowledge innovations",
+                "Chainlink oracle integrations and partnerships"
             ]
-            return random.choice(enhanced_queries)
+            available_queries = [q for q in enhanced_queries if q not in RECENT_QUERIES]
+            if not available_queries:
+                available_queries = enhanced_queries
+                RECENT_QUERIES.clear()
+            
+            selected_query = random.choice(available_queries)
+            RECENT_QUERIES.append(selected_query)
+            if len(RECENT_QUERIES) > MAX_RECENT_QUERIES:
+                RECENT_QUERIES.pop(0)
+            return selected_query
             
     except Exception as e:
         logging.error(f"Error generating dynamic search query: {e}")
-        # Fallback to enhanced static query
+        # Fallback to enhanced static query with diversity
         enhanced_queries = [
             "crypto development breakthroughs",
             "blockchain innovation news",
@@ -681,7 +720,16 @@ def generate_dynamic_search_query():
             "crypto regulatory updates",
             "DeFi protocol developments"
         ]
-        return random.choice(enhanced_queries)
+        available_queries = [q for q in enhanced_queries if q not in RECENT_QUERIES]
+        if not available_queries:
+            available_queries = enhanced_queries
+            RECENT_QUERIES.clear()
+        
+        selected_query = random.choice(available_queries)
+        RECENT_QUERIES.append(selected_query)
+        if len(RECENT_QUERIES) > MAX_RECENT_QUERIES:
+            RECENT_QUERIES.pop(0)
+        return selected_query
 
 def get_trending_content():
     """
@@ -835,35 +883,73 @@ def save_schedule(schedule_data):
     except Exception as e:
         logging.error(f"Error saving schedule: {e}")
 
-def create_new_schedule():
+def create_new_schedule(first_post_minutes=None):
     """
     Creates a new schedule for today with random post times.
+    
+    Args:
+        first_post_minutes (int, optional): If provided, schedules the first post 
+                                          after this many minutes from now.
     """
     today = date.today().isoformat()
     
-    # Posting window in minutes from midnight (9:00 = 540, 21:00 = 1260)
-    START_MIN = 540 
-    END_MIN = 1260
-    
-    # Calculate 5 random times within the window
-    random_minutes = sorted(random.sample(range(START_MIN, END_MIN), 5))
+    if first_post_minutes is not None:
+        # Schedule first post at specified time from now
+        first_post_time = datetime.now() + timedelta(minutes=first_post_minutes)
+        first_hour = first_post_time.hour
+        first_minute = first_post_time.minute
+        first_time_str = f"{first_hour:02d}:{first_minute:02d}"
+        
+        # Posting window in minutes from midnight (9:00 = 540, 21:00 = 1260)
+        START_MIN = 540 
+        END_MIN = 1260
+        
+        # Calculate first post time in minutes from midnight
+        first_post_minutes_from_midnight = first_hour * 60 + first_minute
+        
+        # Generate 4 more random times after the first post within the window
+        # Ensure they're after the first post time
+        min_time = max(first_post_minutes_from_midnight + 30, START_MIN)  # At least 30 min after first post
+        max_time = END_MIN
+        
+        if min_time >= max_time:
+            # If first post is too late, just use it alone
+            random_minutes = []
+        else:
+            # Generate remaining times
+            available_range = list(range(min_time, max_time))
+            num_additional = min(4, len(available_range))
+            if num_additional > 0:
+                random_minutes = sorted(random.sample(available_range, num_additional))
+            else:
+                random_minutes = []
+        
+        # Combine first post with additional posts
+        all_minutes = [first_post_minutes_from_midnight] + random_minutes
+        all_minutes = sorted(list(set(all_minutes)))  # Remove duplicates and sort
+        
+    else:
+        # Default behavior: random times within posting window
+        START_MIN = 540 
+        END_MIN = 1260
+        all_minutes = sorted(random.sample(range(START_MIN, END_MIN), 5))
     
     post_times = []
-    for minutes in random_minutes:
+    for minutes in all_minutes:
         hour = minutes // 60
         minute = minutes % 60
         time_str = f"{hour:02d}:{minute:02d}"
         post_times.append({
             "time": time_str,
             "completed": False,
-            "scheduled_at": datetime.now().isoformat()
+            "scheduled_at": datetime.now(timezone.utc).isoformat()
         })
     
     schedule_data = {
         "date": today,
         "posts": post_times,
         "posts_completed": 0,
-        "max_posts_per_day": 5
+        "max_posts_per_day": len(post_times)
     }
     
     save_schedule(schedule_data)
@@ -879,7 +965,7 @@ def update_schedule_after_post(post_time):
     for post in schedule_data["posts"]:
         if post["time"] == post_time and not post["completed"]:
             post["completed"] = True
-            post["completed_at"] = datetime.now().isoformat()
+            post["completed_at"] = datetime.now(timezone.utc).isoformat()
             schedule_data["posts_completed"] += 1
             break
     
@@ -893,14 +979,22 @@ def is_new_day(schedule_data):
     today = date.today().isoformat()
     return schedule_data.get("date") != today
 
-def schedule_posts_smart():
+def schedule_posts_smart(first_post_minutes=None):
     """
     Smart scheduler that checks existing schedule and updates for new days.
+    
+    Args:
+        first_post_minutes (int, optional): If provided, resets schedule and schedules 
+                                          first post after this many minutes from now.
     """
     schedule_data = load_schedule()
     
+    # If first_post_minutes is provided, reset the schedule
+    if first_post_minutes is not None:
+        logging.info(f"Resetting schedule with first post in {first_post_minutes} minutes")
+        schedule_data = create_new_schedule(first_post_minutes)
     # Check if it's a new day
-    if is_new_day(schedule_data):
+    elif is_new_day(schedule_data):
         logging.info("New day detected, creating fresh schedule")
         schedule_data = create_new_schedule()
     
@@ -922,8 +1016,12 @@ def schedule_posts_smart():
         # Create a closure to capture the current time_str
         def create_post_job(post_time):
             def job():
-                create_and_post()
-                update_schedule_after_post(post_time)
+                success = create_and_post()
+                if success:
+                    update_schedule_after_post(post_time)
+                    logging.info(f"Post at {post_time} completed successfully and schedule updated")
+                else:
+                    logging.error(f"Post at {post_time} failed - schedule not updated")
             return job
         
         # Schedule the job
@@ -1063,6 +1161,65 @@ def post_now_mode():
         logging.error(f"Error in post_now_mode: {e}")
         return False
 
+def get_next_post_countdown():
+    """
+    Get the time remaining until the next scheduled post.
+    Returns a formatted string with the countdown.
+    """
+    try:
+        schedule_data = load_schedule()
+        if not schedule_data or 'posts' not in schedule_data:
+            return "No posts scheduled"
+        
+        now = datetime.now(timezone.utc)
+        next_post_time = None
+        
+        # Find the next scheduled post
+        for post in schedule_data['posts']:
+            # Check if post is not completed (using 'completed' field)
+            if not post.get('completed', False):
+                # Parse the time field to create a datetime for today
+                time_str = post['time']
+                hour, minute = map(int, time_str.split(':'))
+                
+                # Create datetime for today with the scheduled time
+                today = now.date()
+                post_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+                post_time = post_time.replace(tzinfo=timezone.utc)
+                
+                # If the time has passed today, schedule for tomorrow
+                if post_time <= now:
+                    post_time = post_time + timedelta(days=1)
+                
+                if next_post_time is None or post_time < next_post_time:
+                    next_post_time = post_time
+        
+        if next_post_time is None:
+            return "No upcoming posts scheduled"
+        
+        # Calculate time difference
+        time_diff = next_post_time - now
+        total_seconds = int(time_diff.total_seconds())
+        
+        if total_seconds <= 0:
+            return "Next post due now!"
+        
+        # Format the countdown
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        
+        if hours > 0:
+            return f"Next post in: {hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            return f"Next post in: {minutes}m {seconds}s"
+        else:
+            return f"Next post in: {seconds}s"
+            
+    except Exception as e:
+        logging.error(f"Error calculating countdown: {e}")
+        return "Countdown unavailable"
+
 def parse_arguments():
     """
     Parse command line arguments.
@@ -1070,6 +1227,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='X Auto Poster - Automated Twitter posting tool')
     parser.add_argument('--post-now', action='store_true', 
                        help='Generate and post immediately, then exit (no scheduling)')
+    parser.add_argument('--fp', '--first-post', type=int, metavar='MINUTES',
+                       help='Schedule first post after specified minutes from now (resets existing schedule)')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -1089,18 +1248,33 @@ if __name__ == "__main__":
         else:
             # Normal scheduled mode
             logging.info("Starting scheduled mode...")
-            schedule_posts_smart()
+            schedule_posts_smart(args.fp)  # Pass the --fp argument
             
             logging.info("Scheduler started. The tool will now run indefinitely, posting daily.")
             logging.info("Press Ctrl+C to stop the process.")
             
             # Main loop to keep the script running and check for scheduled jobs
             try:
+                last_countdown_display = 0
                 while True:
                     schedule.run_pending()
+                    
+                    # Display countdown every 30 seconds
+                    current_time = time.time()
+                    if current_time - last_countdown_display >= 30:
+                        countdown = get_next_post_countdown()
+                        logging.info(f"📅 {countdown}")
+                        last_countdown_display = current_time
+                    
                     time.sleep(1)
             except KeyboardInterrupt:
                 logging.info("Scheduler stopped by user.")
+            except Exception as e:
+                logging.error(f"Unexpected error in scheduler loop: {e}")
+                logging.info("Restarting scheduler in 60 seconds...")
+                time.sleep(60)
+                # Restart scheduler with same parameters
+                schedule_posts_smart(args.fp)
             
     else:
         logging.critical("Tool failed to initialize. Please check the .env file and your network connection.")
