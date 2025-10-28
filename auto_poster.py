@@ -1750,7 +1750,7 @@ def get_next_post_countdown():
         if not schedule_data or 'posts' not in schedule_data:
             return "No posts scheduled"
         
-        now = datetime.now(timezone.utc)
+        now = datetime.now()  # Use local time instead of UTC
         next_post_time = None
         
         # Find the next scheduled post
@@ -1761,10 +1761,10 @@ def get_next_post_countdown():
                 time_str = post['time']
                 hour, minute = map(int, time_str.split(':'))
                 
-                # Create datetime for today with the scheduled time
+                # Create datetime for today with the scheduled time (local time)
                 today = now.date()
                 post_time = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
-                post_time = post_time.replace(tzinfo=timezone.utc)
+                # No timezone conversion needed - keep as local time
                 
                 # If the time has passed today, schedule for tomorrow
                 if post_time <= now:
