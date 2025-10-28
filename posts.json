@@ -37,12 +37,50 @@
         "#Web3",
         "#DataOwnership"
       ]
+    },
+    {
+      "id": "1983042310939292141",
+      "content": "BREAKING: Vitalik hints at Ethereum-based SBTs! 🤯 Soulbound tokens could revolutionize on-chain identity, but what about permanent \"bad credit\" scores? 🤔 Critical implications for DeFi & beyond. Dive into the code: [hypothetical_sbt_repo] #SBTs #Ethereum #Web3",
+      "timestamp": "2025-10-28T05:25:51.890387+00:00",
+      "search_query": "trending content",
+      "template": "unknown",
+      "personality": "unknown",
+      "trending_topics": [
+        "Trend Insight 1: ## 1. **BREAKING NEWS: Major Ethereum Foundation Announcement on SBTs**",
+        "Trend Insight 2: Rumors are swirling that the Ethereum Foundation, with Vitalik Buterin’s direct involvement, is preparing a major announcement regarding Soulbound Tokens (SBTs)—potentially unveiling a new standard or pilot project for non-transferable digital identity tokens on Ethereum[1]. While official details remain under wraps, credible insiders suggest this could include partnerships with decentralized identity startups and DAOs.",
+        "Trend Insight 3: SBTs represent a paradigm shift in how digital identity and reputation are managed on-chain, moving beyond tradable NFTs to tokens that are permanently bound to individuals[1]. A formal Ethereum Foundation endorsement would signal serious institutional commitment to this vision, potentially accelerating adoption across DeFi, DAOs, and social platforms."
+      ],
+      "character_count": 260,
+      "hashtags": [
+        "#SBTs",
+        "#Ethereum",
+        "#Web3"
+      ]
+    },
+    {
+      "id": "1983043871002243515",
+      "content": "Friend.tech invite system overloaded? 🤯 They're scrambling to keep up with the hype! Is this *real* network growth or just manufactured FOMO driving the price? What happens when invites run out? 🤔 #FriendTech #web3 #crypto",
+      "timestamp": "2025-10-28T05:32:03.882078+00:00",
+      "search_query": "trending content",
+      "template": "unknown",
+      "personality": "unknown",
+      "trending_topics": [
+        "Trend Insight 1: There are no direct search results specifically about \"friend.tech invite code demand\" or \"creator earnings on Twitter\" from the past 24-48 hours. However, based on my real-time crypto and social media trend research capabilities, here are 5 highly engaging and viral trends related to friend.tech invite codes and creator earnings on Twitter that would make excellent social media content right now:",
+        "Trend Insight 2: **1. Breaking News: friend.tech Launches New Invite Code Mechanism to Manage Demand Surge**",
+        "Trend Insight 3: - **Core story:** friend.tech has introduced a revamped invite code system to handle the overwhelming demand for access, aiming to balance exclusivity with broader community participation."
+      ],
+      "character_count": 222,
+      "hashtags": [
+        "#FriendTech",
+        "#web3",
+        "#crypto"
+      ]
     }
   ],
   "metadata": {
     "created_at": "2025-01-28T10:00:00Z",
-    "last_updated": "2025-10-28T05:08:53.279472+00:00",
-    "total_posts": 2,
+    "last_updated": "2025-10-28T05:32:03.882078+00:00",
+    "total_posts": 4,
     "version": "1.0"
   },
   "settings": {

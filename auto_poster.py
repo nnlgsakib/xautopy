@@ -539,6 +539,12 @@ def generate_multiple_posts_with_ai(content_snippets: list, num_posts: int = 2) 
     4. NO generic phrases like "exciting news" or "check this out"
     5. NO prefixes like "Post 1:" - deliver content only
     6. Each post must be COMPLETELY different in structure and approach
+    7. NEVER use placeholder links like [hypothetical_repo], [example_link], or [project_name]
+    8. Only include REAL, ACTUAL repository links from the provided GitHub data
+    9. If no real GitHub repos are provided, do NOT mention any code repositories or links
+    10. Focus on the trending content and insights, not placeholder references
+    11. ABSOLUTELY FORBIDDEN: Any text in square brackets like [anything] - this will be rejected
+    12. If you need to reference code or projects, use descriptive text instead of placeholder links
     
     **Latest Trend Research & Content:**
     ---
@@ -794,10 +800,32 @@ def select_best_post_with_ai(posts: list) -> str:
 def review_post_with_ai(post_text):
     """Reviews and potentially improves a post using Gemini AI with advanced optimization strategies."""
     try:
+        # First, check for placeholder content
+        import re
+        placeholder_patterns = [
+            r'\[.*?\]',  # Any text in square brackets
+            r'hypothetical_\w+',  # Words starting with "hypothetical_"
+            r'example_\w+',  # Words starting with "example_"
+            r'placeholder_\w+',  # Words starting with "placeholder_"
+            r'sample_\w+',  # Words starting with "sample_"
+        ]
+        
+        for pattern in placeholder_patterns:
+            if re.search(pattern, post_text, re.IGNORECASE):
+                logging.warning(f"🚫 Post rejected: Contains placeholder content matching pattern '{pattern}'")
+                return None  # Reject posts with placeholder content
+        
         review_prompt = f"""
         You are an expert social media strategist and viral content creator specializing in crypto/blockchain content. Your mission is to optimize this X post for maximum engagement and virality.
 
         **Current Post:** "{post_text}"
+
+        **CRITICAL CONTENT RULES:**
+        - NEVER include placeholder text in square brackets like [anything]
+        - NEVER use hypothetical links or fake repository references
+        - Only reference REAL, ACTUAL projects and links
+        - If you can't verify a link or project, remove the reference entirely
+        - Focus on the core message and insights, not placeholder content
 
         **Optimization Framework:**
         
@@ -1448,72 +1476,165 @@ def schedule_posts():
     """
     schedule_posts_smart()
 
+# --- Content Validation ---
+
+def validate_content_length(content, min_length=100):
+    """
+    Validates if the content meets minimum length requirements.
+    
+    Args:
+        content (str): The content to validate
+        min_length (int): Minimum character length required (default: 100)
+    
+    Returns:
+        bool: True if content is long enough, False otherwise
+    """
+    if not content:
+        return False
+    
+    # Remove hashtags and extra whitespace for length calculation
+    clean_content = content.strip()
+    # Remove common hashtag patterns for more accurate content length
+    import re
+    clean_content = re.sub(r'#\w+', '', clean_content).strip()
+    
+    actual_length = len(clean_content)
+    logging.info(f"Content length validation: {actual_length} characters (min required: {min_length})")
+    
+    return actual_length >= min_length
+
+def generate_alternative_content():
+    """
+    Generates content with alternative topics when original content is too short.
+    
+    Returns:
+        list: Alternative content snippets focusing on different crypto topics
+    """
+    alternative_topics = [
+        "Bitcoin price analysis and market trends",
+        "Ethereum network upgrades and development updates", 
+        "DeFi protocol innovations and yield farming strategies",
+        "NFT marketplace developments and digital art trends",
+        "Blockchain technology adoption in traditional finance",
+        "Cryptocurrency regulatory updates and compliance news",
+        "Layer 2 scaling solutions and network performance",
+        "Web3 development tools and developer ecosystem growth",
+        "Institutional crypto adoption and corporate treasury strategies",
+        "Decentralized governance and DAO management trends"
+    ]
+    
+    # Select 2-3 random alternative topics
+    import random
+    selected_topics = random.sample(alternative_topics, min(3, len(alternative_topics)))
+    
+    logging.info(f"Generated alternative topics: {selected_topics}")
+    return selected_topics
+
 # --- Main Posting Logic ---
 
 def create_and_post():
-    """Main function to perform the content curation, generation, review, and posting cycle."""
+    """Main function to perform the content curation, generation, review, and posting cycle with content length validation and retry logic."""
     logging.info("--- Starting Post Generation Cycle ---")
     
-    # 1. Data Curation
-    content_snippets = get_trending_content()
-    if not content_snippets:
-        logging.warning("No content found. Skipping post cycle.")
-        return False
+    max_retries = 2  # Maximum number of retries for short content
+    retry_count = 0
     
-    # 2. AI Generation - Generate multiple posts
-    logging.info("Generating multiple posts with AI...")
-    generated_posts = generate_multiple_posts_with_ai(content_snippets, num_posts=2)
-    if not generated_posts:
-        logging.error("AI failed to generate posts. Skipping post cycle.")
-        return False
-    logging.info(f"Generated {len(generated_posts)} posts")
-    for i, post in enumerate(generated_posts, 1):
-        logging.debug(f"Generated Post {i}:\n{post}")
-    
-    # 3. AI Selection - Choose the best post
-    logging.info("Selecting best post with AI...")
-    selected_post = select_best_post_with_ai(generated_posts)
-    if not selected_post:
-        logging.error("AI failed to select best post. Skipping post cycle.")
-        return False
-    logging.info(f"Selected Post: {selected_post}")
-    
-    # 4. AI Review - Final optimization
-    logging.info("Reviewing selected post with AI...")
-    final_post = review_post_with_ai(selected_post)
-    if not final_post:
-        logging.warning("AI review failed. Using selected post without review.")
-        final_post = selected_post
-    logging.info(f"Final Approved Post: {final_post}")
-    
-    # 5. Topic Diversity Check - Prevent repetitive content
-    logging.info("Checking topic diversity against recent posts...")
-    posts_data = load_posts_history()
-    recent_posts = posts_data.get("posts", [])
-    
-    is_diverse = analyze_topic_similarity_with_ai(final_post, recent_posts)
-    if not is_diverse:
-        logging.warning("🚫 Post rejected: Too similar to recent posts. Skipping this cycle to maintain content diversity.")
-        return False
-    
-    logging.info("✅ Post passed diversity check - content is sufficiently different from recent posts")
-    
-    # 6. Posting
-    tweet_id = post_tweet(final_post)
-    success = tweet_id is not None
-    logging.info(f"Posting Status: {'SUCCESS' if success else 'FAILURE'}")
-    
-    # 7. Add to history if successful
-    if success:
-        # Extract metadata for history tracking
-        template_name = "unknown"  # Will be enhanced when we integrate template selection
-        personality_name = "unknown"  # Will be enhanced when we integrate personality selection
-        search_query = "trending content"  # Will be enhanced with actual search query
-        trending_topics = content_snippets[:3] if content_snippets else []
+    while retry_count <= max_retries:
+        if retry_count > 0:
+            logging.info(f"--- Retry Attempt {retry_count}/{max_retries} with Alternative Topics ---")
         
-        add_post_to_history(final_post, tweet_id, search_query, template_name, personality_name, trending_topics)
+        # 1. Data Curation
+        if retry_count == 0:
+            # First attempt: use trending content
+            content_snippets = get_trending_content()
+            if not content_snippets:
+                logging.warning("No trending content found. Using alternative topics.")
+                content_snippets = generate_alternative_content()
+        else:
+            # Retry attempts: use alternative topics
+            logging.info("Using alternative topics for content generation...")
+            content_snippets = generate_alternative_content()
+        
+        if not content_snippets:
+            logging.warning("No content found. Skipping post cycle.")
+            return False
+        
+        # 2. AI Generation - Generate multiple posts
+        logging.info("Generating multiple posts with AI...")
+        generated_posts = generate_multiple_posts_with_ai(content_snippets, num_posts=2)
+        if not generated_posts:
+            logging.error("AI failed to generate posts. Trying next attempt...")
+            retry_count += 1
+            continue
+        
+        logging.info(f"Generated {len(generated_posts)} posts")
+        for i, post in enumerate(generated_posts, 1):
+            logging.debug(f"Generated Post {i}:\n{post}")
+        
+        # 3. AI Selection - Choose the best post
+        logging.info("Selecting best post with AI...")
+        selected_post = select_best_post_with_ai(generated_posts)
+        if not selected_post:
+            logging.error("AI failed to select best post. Trying next attempt...")
+            retry_count += 1
+            continue
+        
+        logging.info(f"Selected Post: {selected_post}")
+        
+        # 4. Content Length Validation
+        if not validate_content_length(selected_post):
+            logging.warning(f"⚠️ Content too short (attempt {retry_count + 1}/{max_retries + 1}). Regenerating with different topics...")
+            retry_count += 1
+            continue
+        
+        logging.info("✅ Content length validation passed")
+        
+        # 5. AI Review - Final optimization
+        logging.info("Reviewing selected post with AI...")
+        final_post = review_post_with_ai(selected_post)
+        if not final_post:
+            logging.warning("AI review failed. Using selected post without review.")
+            final_post = selected_post
+        logging.info(f"Final Approved Post: {final_post}")
+        
+        # 6. Final length check after review
+        if not validate_content_length(final_post):
+            logging.warning(f"⚠️ Final post too short after review (attempt {retry_count + 1}/{max_retries + 1}). Regenerating...")
+            retry_count += 1
+            continue
+        
+        # 7. Topic Diversity Check - Prevent repetitive content
+        logging.info("Checking topic diversity against recent posts...")
+        posts_data = load_posts_history()
+        recent_posts = posts_data.get("posts", [])
+        
+        is_diverse = analyze_topic_similarity_with_ai(final_post, recent_posts)
+        if not is_diverse:
+            logging.warning("🚫 Post rejected: Too similar to recent posts. Skipping this cycle to maintain content diversity.")
+            return False
+        
+        logging.info("✅ Post passed diversity check - content is sufficiently different from recent posts")
+        
+        # 8. Posting
+        tweet_id = post_tweet(final_post)
+        success = tweet_id is not None
+        logging.info(f"Posting Status: {'SUCCESS' if success else 'FAILURE'}")
+        
+        # 9. Add to history if successful
+        if success:
+            # Extract metadata for history tracking
+            template_name = "unknown"  # Will be enhanced when we integrate template selection
+            personality_name = "unknown"  # Will be enhanced when we integrate personality selection
+            search_query = "trending content" if retry_count == 0 else "alternative topics"
+            trending_topics = content_snippets[:3] if content_snippets else []
+            
+            add_post_to_history(final_post, tweet_id, search_query, template_name, personality_name, trending_topics)
+        
+        return success
     
-    return success
+    # If all retries failed
+    logging.error(f"❌ Failed to generate adequate content after {max_retries + 1} attempts. Skipping post cycle.")
+    return False
 
 
 # --- Main Execution ---
