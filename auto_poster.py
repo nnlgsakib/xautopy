@@ -1226,14 +1226,16 @@ def save_schedule(schedule_data):
     except Exception as e:
         logging.error(f"Error saving schedule: {e}")
 
-def create_new_schedule(first_post_minutes=None, posts_per_day=None):
+def create_new_schedule(first_post_minutes=None, posts_per_day=None, interval_minutes=None):
     """
-    Creates a new schedule for today with random post times.
+    Creates a new schedule for today with random post times or fixed intervals.
     
     Args:
         first_post_minutes (int, optional): If provided, schedules the first post 
                                           after this many minutes from now.
         posts_per_day (int, optional): Number of posts to schedule per day (default: 5).
+        interval_minutes (int, optional): If provided, schedules posts at fixed intervals 
+                                        instead of random times.
     """
     today = date.today().isoformat()
     
@@ -1249,7 +1251,36 @@ def create_new_schedule(first_post_minutes=None, posts_per_day=None):
         posts_per_day = 20
         logging.warning("Posts per day cannot be more than 20, setting to 20")
     
-    if first_post_minutes is not None:
+    # Interval-based scheduling
+    if interval_minutes is not None:
+        logging.info(f"Creating interval-based schedule with {interval_minutes} minute intervals")
+        
+        # Start from now or from first_post_minutes if specified
+        if first_post_minutes is not None:
+            start_time = datetime.now() + timedelta(minutes=first_post_minutes)
+        else:
+            start_time = datetime.now() + timedelta(minutes=interval_minutes)
+        
+        all_minutes = []
+        current_time = start_time
+        
+        # Generate posts at fixed intervals until end of day or max posts reached
+        END_OF_DAY = datetime.now().replace(hour=23, minute=59, second=59)
+        
+        for i in range(posts_per_day):
+            if current_time > END_OF_DAY:
+                break
+                
+            # Convert to minutes from midnight
+            minutes_from_midnight = current_time.hour * 60 + current_time.minute
+            all_minutes.append(minutes_from_midnight)
+            
+            # Add interval for next post
+            current_time += timedelta(minutes=interval_minutes)
+        
+        logging.info(f"Scheduled {len(all_minutes)} posts at {interval_minutes}-minute intervals")
+        
+    elif first_post_minutes is not None:
         # Schedule first post at specified time from now
         first_post_time = datetime.now() + timedelta(minutes=first_post_minutes)
         first_hour = first_post_time.hour
@@ -1338,7 +1369,7 @@ def is_new_day(schedule_data):
     today = date.today().isoformat()
     return schedule_data.get("date") != today
 
-def schedule_posts_smart(first_post_minutes=None, posts_per_day=None):
+def schedule_posts_smart(first_post_minutes=None, posts_per_day=None, interval_minutes=None):
     """
     Smart scheduler that checks existing schedule and updates for new days.
     
@@ -1346,13 +1377,17 @@ def schedule_posts_smart(first_post_minutes=None, posts_per_day=None):
         first_post_minutes (int, optional): If provided, resets schedule and schedules 
                                           first post after this many minutes from now.
         posts_per_day (int, optional): Number of posts to schedule per day.
+        interval_minutes (int, optional): If provided, schedules posts at fixed intervals.
     """
     schedule_data = load_schedule()
     
-    # If first_post_minutes is provided, reset the schedule
-    if first_post_minutes is not None:
-        logging.info(f"Resetting schedule with first post in {first_post_minutes} minutes")
-        schedule_data = create_new_schedule(first_post_minutes, posts_per_day)
+    # If first_post_minutes or interval_minutes is provided, reset the schedule
+    if first_post_minutes is not None or interval_minutes is not None:
+        if interval_minutes is not None:
+            logging.info(f"Resetting schedule with {interval_minutes} minute intervals")
+        if first_post_minutes is not None:
+            logging.info(f"First post scheduled in {first_post_minutes} minutes")
+        schedule_data = create_new_schedule(first_post_minutes, posts_per_day, interval_minutes)
     # Check if it's a new day
     elif is_new_day(schedule_data):
         logging.info("New day detected, creating fresh schedule")
@@ -1654,6 +1689,8 @@ def parse_arguments():
                        help='Schedule first post after specified minutes from now (resets existing schedule)')
     parser.add_argument('--ppd', '--posts-per-day', type=int, metavar='COUNT', default=5,
                        help='Number of posts to schedule per day (default: 5, min: 1, max: 20)')
+    parser.add_argument('--interval', type=int, metavar='MINUTES',
+                       help='Post every X minutes (e.g., 30 for every 30 minutes). Overrides random scheduling.')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -1672,7 +1709,7 @@ if __name__ == "__main__":
             logging.info("Exiting...")
         else:
             logging.info("Starting scheduled mode...")
-            schedule_posts_smart(args.fp, args.ppd)  # Pass both --fp and --ppd arguments
+            schedule_posts_smart(args.fp, args.ppd, args.interval)  # Pass --fp, --ppd, and --interval arguments
 
             logging.info("Scheduler started. The tool will now run indefinitely, posting daily.")
             logging.info("Press Ctrl+C to stop the process.")
@@ -1698,7 +1735,7 @@ if __name__ == "__main__":
                 logging.info("Restarting scheduler in 60 seconds...")
                 time.sleep(60)
                 # Restart scheduler with same parameters
-                schedule_posts_smart(args.fp, args.ppd)
+                schedule_posts_smart(args.fp, args.ppd, args.interval)
             
     else:
         logging.critical("Tool failed to initialize. Please check the .env file and your network connection.")
