@@ -84,6 +84,89 @@ SCHEDULE_FILE = "schedule.json"
 RECENT_QUERIES = []
 MAX_RECENT_QUERIES = 10
 
+# Post Templates for Diverse Content Generation
+POST_TEMPLATES = {
+    "breaking_news": {
+        "style": "urgent, attention-grabbing",
+        "structure": "🚨 BREAKING: [headline] [impact/implication] [call_to_action] #hashtags",
+        "tone": "excited, urgent",
+        "examples": ["🚨 BREAKING:", "JUST IN:", "ALERT:"]
+    },
+    "technical_analysis": {
+        "style": "analytical, expert-level",
+        "structure": "[technical_insight] [data/metrics] [expert_opinion] [future_prediction] #hashtags",
+        "tone": "analytical, authoritative",
+        "examples": ["Deep dive:", "Technical breakdown:", "Analysis:"]
+    },
+    "personal_insight": {
+        "style": "conversational, thought-provoking",
+        "structure": "[personal_observation] [reasoning] [broader_implication] [question] #hashtags",
+        "tone": "thoughtful, conversational",
+        "examples": ["Been thinking about", "My take on", "Interesting observation:"]
+    },
+    "educational": {
+        "style": "informative, accessible",
+        "structure": "[concept_explanation] [why_it_matters] [practical_application] [learn_more] #hashtags",
+        "tone": "educational, helpful",
+        "examples": ["Quick explainer:", "For those wondering:", "Let me break this down:"]
+    },
+    "prediction": {
+        "style": "forward-looking, bold",
+        "structure": "[prediction] [reasoning] [timeline] [implications] #hashtags",
+        "tone": "confident, visionary",
+        "examples": ["Prediction:", "Mark my words:", "Calling it now:"]
+    },
+    "github_showcase": {
+        "style": "proud, technical",
+        "structure": "[project_highlight] [technical_details] [use_case] [github_link] #hashtags",
+        "tone": "proud, technical",
+        "examples": ["Just shipped:", "Working on:", "New project:"]
+    },
+    "market_commentary": {
+        "style": "observational, market-focused",
+        "structure": "[market_observation] [data_point] [analysis] [outlook] #hashtags",
+        "tone": "observational, analytical",
+        "examples": ["Market watch:", "Interesting trend:", "Data shows:"]
+    },
+    "community_engagement": {
+        "style": "interactive, community-focused",
+        "structure": "[topic_introduction] [community_question] [encourage_discussion] #hashtags",
+        "tone": "engaging, inclusive",
+        "examples": ["Community question:", "What do you think?", "Let's discuss:"]
+    }
+}
+
+# Personality Modes for Human-like Variation
+PERSONALITY_MODES = {
+    "excited_builder": {
+        "characteristics": "enthusiastic, optimistic, builder-focused",
+        "language": "energetic, uses emojis, focuses on possibilities",
+        "perspective": "sees opportunities, emphasizes innovation"
+    },
+    "analytical_expert": {
+        "characteristics": "data-driven, precise, technical",
+        "language": "measured, uses specific metrics, technical terms",
+        "perspective": "focuses on facts, trends, and analysis"
+    },
+    "cautious_realist": {
+        "characteristics": "balanced, risk-aware, practical",
+        "language": "measured, mentions risks and benefits",
+        "perspective": "considers downsides, emphasizes due diligence"
+    },
+    "community_leader": {
+        "characteristics": "inclusive, educational, supportive",
+        "language": "welcoming, asks questions, encourages participation",
+        "perspective": "focuses on community building and education"
+    }
+}
+
+# GitHub Integration Variables
+GITHUB_USERNAME = "nnlgsakib"
+GITHUB_API_URL = "https://api.github.com"
+
+# Post History Tracking
+POSTS_FILE = "posts.json"
+
 # --- Twitter API Functions ---
 
 def authenticate_twitter():
@@ -120,91 +203,351 @@ def post_tweet(text: str):
     """Posts a tweet using the authenticated Twitter client."""
     if TWITTER_CLIENT is None:
         logging.error("Cannot post tweet: Twitter client is not authenticated.")
-        return False
+        return None
     
     try:
         response = TWITTER_CLIENT.create_tweet(text=text)
         tweet_id = response.data['id']
         logging.info(f"Successfully posted tweet! ID: {tweet_id}")
         logging.debug(f"Posted Text: {text}") # Use debug for the full text to keep info clean
-        return True
+        return tweet_id
     except Exception as e:
         logging.error(f"Error posting tweet: {e}")
-        return False
+        return None
 
 
 # --- Gemini API Functions ---
 
+def load_posts_history():
+    """
+    Loads the post history from posts.json file.
+    """
+    try:
+        if os.path.exists(POSTS_FILE):
+            with open(POSTS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logging.info(f"Loaded {len(data.get('posts', []))} posts from history")
+                return data
+        else:
+            # Create initial structure if file doesn't exist
+            initial_data = {
+                "posts": [],
+                "metadata": {
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "last_updated": datetime.now(timezone.utc).isoformat(),
+                    "total_posts": 0,
+                    "version": "1.0"
+                },
+                "settings": {
+                    "max_history_days": 30,
+                    "similarity_threshold": 0.7,
+                    "min_topic_diversity_hours": 6
+                }
+            }
+            save_posts_history(initial_data)
+            return initial_data
+    except Exception as e:
+        logging.error(f"Error loading posts history: {e}")
+        return {"posts": [], "metadata": {"total_posts": 0}, "settings": {}}
+
+def save_posts_history(posts_data):
+    """
+    Saves the post history to posts.json file.
+    """
+    try:
+        posts_data["metadata"]["last_updated"] = datetime.now(timezone.utc).isoformat()
+        posts_data["metadata"]["total_posts"] = len(posts_data.get("posts", []))
+        
+        with open(POSTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(posts_data, f, indent=2, ensure_ascii=False)
+        logging.info(f"Saved posts history with {posts_data['metadata']['total_posts']} posts")
+    except Exception as e:
+        logging.error(f"Error saving posts history: {e}")
+
+def add_post_to_history(post_content, tweet_id, search_query, template_name, personality_name, trending_topics):
+    """
+    Adds a new post to the history with all relevant metadata.
+    """
+    try:
+        posts_data = load_posts_history()
+        
+        new_post = {
+            "id": tweet_id,
+            "content": post_content,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "search_query": search_query,
+            "template": template_name,
+            "personality": personality_name,
+            "trending_topics": trending_topics,
+            "character_count": len(post_content),
+            "hashtags": [word for word in post_content.split() if word.startswith('#')]
+        }
+        
+        posts_data["posts"].append(new_post)
+        
+        # Clean old posts (keep only last 30 days by default)
+        max_days = posts_data.get("settings", {}).get("max_history_days", 30)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=max_days)
+        
+        posts_data["posts"] = [
+            post for post in posts_data["posts"]
+            if datetime.fromisoformat(post["timestamp"].replace('Z', '+00:00')) > cutoff_date
+        ]
+        
+        save_posts_history(posts_data)
+        logging.info(f"Added new post to history: {post_content[:50]}...")
+        
+    except Exception as e:
+        logging.error(f"Error adding post to history: {e}")
+
+def analyze_topic_similarity_with_ai(new_content, recent_posts, similarity_threshold=0.7):
+    """
+    Uses AI to analyze if the new content is too similar to recent posts.
+    Returns True if content is diverse enough, False if too similar.
+    """
+    if not recent_posts or not GEMINI_API_KEY:
+        return True  # Allow posting if no history or no AI available
+    
+    try:
+        # Get recent posts from last 24 hours
+        recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        recent_posts_content = []
+        
+        for post in recent_posts[-10:]:  # Check last 10 posts max
+            post_time = datetime.fromisoformat(post["timestamp"].replace('Z', '+00:00'))
+            if post_time > recent_cutoff:
+                recent_posts_content.append({
+                    "content": post["content"],
+                    "topics": post.get("trending_topics", []),
+                    "template": post.get("template", "unknown"),
+                    "hours_ago": (datetime.now(timezone.utc) - post_time).total_seconds() / 3600
+                })
+        
+        if not recent_posts_content:
+            return True  # No recent posts to compare
+        
+        recent_posts_text = "\n".join([
+            f"- {post['content']} (Template: {post['template']}, {post['hours_ago']:.1f}h ago)"
+            for post in recent_posts_content
+        ])
+        
+        prompt = f"""
+        You are an expert content analyst. Analyze if the NEW POST is too similar to RECENT POSTS.
+        
+        **SIMILARITY CRITERIA:**
+        - Same main topic/subject (e.g., both about Ethereum, both about DeFi, both about specific coins)
+        - Similar angle or perspective on the same news/trend
+        - Repetitive themes within 24 hours
+        - Same template style covering identical topics
+        
+        **DIVERSITY CRITERIA (GOOD):**
+        - Different blockchain topics (Ethereum vs Bitcoin vs DeFi vs NFTs)
+        - Different angles on broad topics (technical vs market vs regulatory)
+        - Different template styles (news vs analysis vs personal insight)
+        - Time-sensitive updates on evolving stories
+        
+        **NEW POST TO ANALYZE:**
+        {new_content}
+        
+        **RECENT POSTS (last 24h):**
+        {recent_posts_text}
+        
+        **DECISION REQUIRED:**
+        Respond with ONLY one word:
+        - "DIVERSE" if the new post covers different topics/angles and adds value
+        - "SIMILAR" if the new post is too repetitive or covers the same ground
+        
+        Consider that crypto moves fast - multiple posts about different aspects of the same major event can be valuable, but avoid repetitive takes on the same specific topic.
+        """
+        
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': GEMINI_API_KEY
+        }
+        
+        response = requests.post(GEMINI_API_URL, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            ai_decision = result['candidates'][0]['content']['parts'][0]['text'].strip().upper()
+            
+            is_diverse = "DIVERSE" in ai_decision
+            logging.info(f"AI Topic Analysis: {ai_decision} - {'✅ Diverse enough' if is_diverse else '❌ Too similar'}")
+            return is_diverse
+        else:
+            logging.error(f"AI similarity check failed: {response.status_code}")
+            return True  # Default to allowing post if AI fails
+            
+    except Exception as e:
+        logging.error(f"Error in AI similarity analysis: {e}")
+        return True  # Default to allowing post if error occurs
+
+def get_github_repositories():
+    """
+    Fetches user's GitHub repositories and returns interesting projects for showcasing.
+    """
+    try:
+        url = f"{GITHUB_API_URL}/users/{GITHUB_USERNAME}/repos"
+        params = {
+            'sort': 'updated',
+            'per_page': 20,
+            'type': 'owner'
+        }
+        
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            repos = response.json()
+            
+            # Filter for interesting repositories (not forks, has description, recent activity)
+            interesting_repos = []
+            for repo in repos:
+                if (not repo['fork'] and 
+                    repo['description'] and 
+                    repo['stargazers_count'] >= 0 and  # Include all repos for now
+                    repo['language']):  # Has a primary language
+                    
+                    interesting_repos.append({
+                        'name': repo['name'],
+                        'description': repo['description'],
+                        'language': repo['language'],
+                        'stars': repo['stargazers_count'],
+                        'url': repo['html_url'],
+                        'updated_at': repo['updated_at'],
+                        'topics': repo.get('topics', [])
+                    })
+            
+            # Sort by stars and recent activity
+            interesting_repos.sort(key=lambda x: (x['stars'], x['updated_at']), reverse=True)
+            
+            logging.info(f"Found {len(interesting_repos)} interesting GitHub repositories")
+            return interesting_repos[:10]  # Return top 10
+            
+        else:
+            logging.error(f"GitHub API Error: {response.status_code}")
+            return []
+            
+    except Exception as e:
+        logging.error(f"Error fetching GitHub repositories: {e}")
+        return []
+
+def select_post_template_and_personality():
+    """
+    Randomly selects a post template and personality mode for diverse content generation.
+    """
+    # Randomly select template and personality
+    template_name = random.choice(list(POST_TEMPLATES.keys()))
+    personality_name = random.choice(list(PERSONALITY_MODES.keys()))
+    
+    template = POST_TEMPLATES[template_name]
+    personality = PERSONALITY_MODES[personality_name]
+    
+    logging.info(f"Selected template: {template_name}, personality: {personality_name}")
+    
+    return template_name, template, personality_name, personality
+
 def generate_multiple_posts_with_ai(content_snippets: list, num_posts: int = 2) -> list:
     """
-    Generates multiple human-like, SEO-optimized X posts based on curated content.
-    Uses the gemini-2.0-pro model to create diverse variations for selection.
+    Generates multiple human-like, diverse X posts using dynamic templates and personalities.
+    Uses the gemini-2.0-pro model with randomized approaches for maximum variety.
     """
     # The client is configured globally, so we only need to check the API key
     if not GEMINI_API_KEY:
         logging.error("Gemini API key not configured for post generation.")
         return []
     
+    # Select random template and personality for this generation
+    template_name, template, personality_name, personality = select_post_template_and_personality()
+    
     # Combine content snippets into a single string for the prompt
     input_content = "\n---\n".join(content_snippets)
     
-    # Enhanced prompt for high-quality, human-like, SEO-optimized posts based on Perplexity trends
+    # Decide if we should include GitHub showcase (20% chance)
+    include_github = random.random() < 0.2 and template_name == "github_showcase"
+    github_repos = []
+    
+    if include_github:
+        github_repos = get_github_repositories()
+        if github_repos:
+            # Add top 3 repos to content for AI to reference
+            repo_info = "\n".join([
+                f"Repository: {repo['name']} - {repo['description']} ({repo['language']}, {repo['stars']} stars) - {repo['url']}"
+                for repo in github_repos[:3]
+            ])
+            input_content += f"\n\n--- YOUR GITHUB PROJECTS TO SHOWCASE ---\n{repo_info}"
+    
+    # Create dynamic prompt based on selected template and personality
     prompt = f"""
-    You are a renowned Blockchain Developer, Researcher, and Cryptographer with 10+ years of experience. Your posts consistently go viral and establish thought leadership in the crypto space.
+    You are NLG Sakib (@nlg_sakib_), a renowned Blockchain Developer, Researcher, and Cryptographer with 10+ years of experience. Your posts consistently go viral and establish thought leadership in the crypto space.
     
-    **Mission:** Transform the latest trend research into {num_posts} compelling X posts that feel authentically human, drive massive engagement, and position you as an industry authority. Each post should offer a unique angle or perspective on the same trending topic.
+    **CURRENT POSTING STYLE:** {template_name.upper().replace('_', ' ')}
+    **PERSONALITY MODE:** {personality_name.upper().replace('_', ' ')}
     
-    **Voice & Tone Guidelines:**
-    - Write like a seasoned expert sharing genuine insights from fresh research, not recycled content
-    - Use conversational yet authoritative language that shows deep understanding
-    - Include subtle technical depth that showcases expertise without alienating newcomers
-    - Vary between analytical, excited, cautionary, or forward-thinking tones based on the trend
-    - Add personality through strategic use of emojis (1-2 max, contextually relevant)
-    - Show genuine curiosity and passion for the technology
+    **Template Guidelines:**
+    - Style: {template['style']}
+    - Structure: {template['structure']}
+    - Tone: {template['tone']}
+    - Example starters: {', '.join(template['examples'])}
     
-    **Variation Strategy:**
-    - Create {num_posts} distinct posts with different angles: technical analysis, market implications, future predictions, historical context, etc.
-    - Use different hooks: bold statements, intriguing questions, surprising insights, predictions, warnings
-    - Vary the emotional tone: excitement, caution, curiosity, confidence, urgency
-    - Different target audiences: developers, investors, general crypto enthusiasts
-    - Mix content types: breaking news, analysis, predictions, educational insights
+    **Personality Characteristics:**
+    - {personality['characteristics']}
+    - Language style: {personality['language']}
+    - Perspective: {personality['perspective']}
     
-    **Trend-Based Content Strategy:**
-    - Lead with the most compelling/surprising element from the research
-    - Connect breaking news to broader implications for the industry
-    - Add your expert perspective or prediction based on the trend data
-    - Use specific numbers, percentages, or timeframes from the research when available
-    - Create urgency around time-sensitive developments
-    - Position emerging trends within historical context
+    **Mission:** Create {num_posts} COMPLETELY DIFFERENT posts using the {template_name} template with {personality_name} personality. Each post should feel authentically human and offer unique angles on the trending content.
     
-    **Engagement Optimization:**
-    - Start with a hook: bold statement, intriguing question, or surprising insight from the trends
-    - Use power words: "breakthrough," "revolutionary," "critical," "emerging," "game-changing," "unprecedented"
-    - Include actionable insights or bold predictions based on the trend analysis
-    - Create FOMO around emerging opportunities or warn about potential risks
-    - End with a thought-provoking question that invites expert discussion
+    **CRITICAL DIVERSITY REQUIREMENTS:**
+    1. Use DIFFERENT sentence structures for each post
+    2. Vary emotional intensity (excited vs calm vs urgent vs thoughtful)
+    3. Different hooks: questions, bold statements, predictions, observations
+    4. Mix technical depth levels (beginner-friendly vs expert-level)
+    5. Vary hashtag strategies and placement
+    6. Different call-to-actions or engagement styles
+    
+    **Content Strategy Based on Template:**
+    {f"- GITHUB SHOWCASE: Highlight your development work and technical expertise from your repositories" if include_github else ""}
+    - Lead with the most compelling element from the research
+    - Connect breaking news to broader industry implications
+    - Add your expert perspective based on your {personality_name} personality
+    - Use specific data points and metrics when available
+    - Create appropriate urgency or curiosity based on the template style
+    
+    **Human-like Variation Techniques:**
+    - Use different sentence lengths (short punchy vs longer explanatory)
+    - Vary emoji usage (0-2 per post, contextually relevant)
+    - Mix formal and casual language appropriately
+    - Include personal opinions and predictions
+    - Use different engagement hooks (questions, statements, calls-to-action)
+    - Vary technical jargon vs accessible language
     
     **Technical Requirements:**
-    1. Maximum 280 characters per post (including hashtags, spaces, and emojis)
-    2. Include 3-4 strategic hashtags that maximize discoverability for the specific trends
-    3. Naturally integrate trending keywords and topics from the research
-    4. Avoid generic phrases like "exciting news," "check this out," or "thoughts?"
-    5. No introductory text - deliver the post content only
-    6. Do not include any prefixes like "Post 1:" or "Here's the post:"
+    1. Maximum 280 characters per post (including hashtags and emojis)
+    2. Include 2-4 strategic hashtags relevant to the content and template
+    3. Naturally integrate trending keywords from the research
+    4. NO generic phrases like "exciting news" or "check this out"
+    5. NO prefixes like "Post 1:" - deliver content only
+    6. Each post must be COMPLETELY different in structure and approach
     
-    **Research-Driven Approach:**
-    - Synthesize multiple trend insights into one cohesive narrative
-    - Highlight the most newsworthy or surprising elements
-    - Connect dots between different developments mentioned in the research
-    - Use the freshness of the information as a competitive advantage
-    - Reference specific developments, partnerships, or breakthroughs mentioned
-    
-    **Latest Trend Research:**
+    **Latest Trend Research & Content:**
     ---
     {input_content}
     ---
     
-    Generate exactly {num_posts} distinct X posts that leverage these fresh trends from different angles. Format your response as follows:
+    Generate exactly {num_posts} posts that are DRAMATICALLY different from each other, all following the {template_name} template with {personality_name} personality. Make each post feel like it came from a different moment of inspiration.
+    
+    Format your response as:
     
     POST_1:
     [First post content]
@@ -215,7 +558,7 @@ def generate_multiple_posts_with_ai(content_snippets: list, num_posts: int = 2) 
     POST_3:
     [Third post content if num_posts > 2]
     
-    Return only the posts in this exact format without any additional explanations or prefixes.
+    Return ONLY the posts in this exact format without explanations.
     """
     
     try:
@@ -883,15 +1226,28 @@ def save_schedule(schedule_data):
     except Exception as e:
         logging.error(f"Error saving schedule: {e}")
 
-def create_new_schedule(first_post_minutes=None):
+def create_new_schedule(first_post_minutes=None, posts_per_day=None):
     """
     Creates a new schedule for today with random post times.
     
     Args:
         first_post_minutes (int, optional): If provided, schedules the first post 
                                           after this many minutes from now.
+        posts_per_day (int, optional): Number of posts to schedule per day (default: 5).
     """
     today = date.today().isoformat()
+    
+    # Set default posts per day if not provided
+    if posts_per_day is None:
+        posts_per_day = 5
+    
+    # Validate posts_per_day
+    if posts_per_day < 1:
+        posts_per_day = 1
+        logging.warning("Posts per day cannot be less than 1, setting to 1")
+    elif posts_per_day > 20:
+        posts_per_day = 20
+        logging.warning("Posts per day cannot be more than 20, setting to 20")
     
     if first_post_minutes is not None:
         # Schedule first post at specified time from now
@@ -907,7 +1263,7 @@ def create_new_schedule(first_post_minutes=None):
         # Calculate first post time in minutes from midnight
         first_post_minutes_from_midnight = first_hour * 60 + first_minute
         
-        # Generate 4 more random times after the first post within the window
+        # Generate additional random times after the first post within the window
         # Ensure they're after the first post time
         min_time = max(first_post_minutes_from_midnight + 30, START_MIN)  # At least 30 min after first post
         max_time = END_MIN
@@ -918,7 +1274,7 @@ def create_new_schedule(first_post_minutes=None):
         else:
             # Generate remaining times
             available_range = list(range(min_time, max_time))
-            num_additional = min(4, len(available_range))
+            num_additional = min(posts_per_day - 1, len(available_range))
             if num_additional > 0:
                 random_minutes = sorted(random.sample(available_range, num_additional))
             else:
@@ -932,7 +1288,9 @@ def create_new_schedule(first_post_minutes=None):
         # Default behavior: random times within posting window
         START_MIN = 540 
         END_MIN = 1260
-        all_minutes = sorted(random.sample(range(START_MIN, END_MIN), 5))
+        available_range = list(range(START_MIN, END_MIN))
+        num_posts = min(posts_per_day, len(available_range))
+        all_minutes = sorted(random.sample(available_range, num_posts))
     
     post_times = []
     for minutes in all_minutes:
@@ -953,6 +1311,7 @@ def create_new_schedule(first_post_minutes=None):
     }
     
     save_schedule(schedule_data)
+    logging.info(f"Created new schedule with {len(post_times)} posts for {today}")
     return schedule_data
 
 def update_schedule_after_post(post_time):
@@ -979,24 +1338,25 @@ def is_new_day(schedule_data):
     today = date.today().isoformat()
     return schedule_data.get("date") != today
 
-def schedule_posts_smart(first_post_minutes=None):
+def schedule_posts_smart(first_post_minutes=None, posts_per_day=None):
     """
     Smart scheduler that checks existing schedule and updates for new days.
     
     Args:
         first_post_minutes (int, optional): If provided, resets schedule and schedules 
                                           first post after this many minutes from now.
+        posts_per_day (int, optional): Number of posts to schedule per day.
     """
     schedule_data = load_schedule()
     
     # If first_post_minutes is provided, reset the schedule
     if first_post_minutes is not None:
         logging.info(f"Resetting schedule with first post in {first_post_minutes} minutes")
-        schedule_data = create_new_schedule(first_post_minutes)
+        schedule_data = create_new_schedule(first_post_minutes, posts_per_day)
     # Check if it's a new day
     elif is_new_day(schedule_data):
         logging.info("New day detected, creating fresh schedule")
-        schedule_data = create_new_schedule()
+        schedule_data = create_new_schedule(posts_per_day=posts_per_day)
     
     # Clear any existing scheduled jobs
     schedule.clear()
@@ -1009,24 +1369,42 @@ def schedule_posts_smart(first_post_minutes=None):
         return
     
     logging.info(f"Scheduling {len(remaining_posts)} remaining posts for today:")
+    current_time = datetime.now()
+    logging.info(f"Current local time: {current_time.strftime('%H:%M:%S')}")
     
     for post in remaining_posts:
         time_str = post["time"]
         
+        # Parse the scheduled time and check if it's in the future
+        try:
+            scheduled_hour, scheduled_minute = map(int, time_str.split(':'))
+            scheduled_time = current_time.replace(hour=scheduled_hour, minute=scheduled_minute, second=0, microsecond=0)
+            
+            # If the scheduled time has already passed today, skip it
+            if scheduled_time <= current_time:
+                logging.warning(f"Scheduled time {time_str} has already passed today, marking as completed")
+                update_schedule_after_post(time_str)
+                continue
+                
+        except ValueError:
+            logging.error(f"Invalid time format: {time_str}")
+            continue
+        
         # Create a closure to capture the current time_str
         def create_post_job(post_time):
             def job():
-                success = create_and_post()
-                if success:
+                logging.info(f"🚀 Executing scheduled post at {post_time}")
+                tweet_id = create_and_post()
+                if tweet_id:
                     update_schedule_after_post(post_time)
-                    logging.info(f"Post at {post_time} completed successfully and schedule updated")
+                    logging.info(f"✅ Post at {post_time} completed successfully and schedule updated")
                 else:
-                    logging.error(f"Post at {post_time} failed - schedule not updated")
+                    logging.error(f"❌ Post at {post_time} failed - schedule not updated")
             return job
         
         # Schedule the job
         schedule.every().day.at(time_str).do(create_post_job(time_str))
-        logging.info(f"Scheduled post at: {time_str} UTC")
+        logging.info(f"✅ Scheduled post at: {time_str} (local time)")
 
 def schedule_posts():
     """
@@ -1073,9 +1451,32 @@ def create_and_post():
         final_post = selected_post
     logging.info(f"Final Approved Post: {final_post}")
     
-    # 5. Posting
-    success = post_tweet(final_post)
+    # 5. Topic Diversity Check - Prevent repetitive content
+    logging.info("Checking topic diversity against recent posts...")
+    posts_data = load_posts_history()
+    recent_posts = posts_data.get("posts", [])
+    
+    is_diverse = analyze_topic_similarity_with_ai(final_post, recent_posts)
+    if not is_diverse:
+        logging.warning("🚫 Post rejected: Too similar to recent posts. Skipping this cycle to maintain content diversity.")
+        return False
+    
+    logging.info("✅ Post passed diversity check - content is sufficiently different from recent posts")
+    
+    # 6. Posting
+    tweet_id = post_tweet(final_post)
+    success = tweet_id is not None
     logging.info(f"Posting Status: {'SUCCESS' if success else 'FAILURE'}")
+    
+    # 7. Add to history if successful
+    if success:
+        # Extract metadata for history tracking
+        template_name = "unknown"  # Will be enhanced when we integrate template selection
+        personality_name = "unknown"  # Will be enhanced when we integrate personality selection
+        search_query = "trending content"  # Will be enhanced with actual search query
+        trending_topics = content_snippets[:3] if content_snippets else []
+        
+        add_post_to_history(final_post, tweet_id, search_query, template_name, personality_name, trending_topics)
     
     return success
 
@@ -1145,13 +1546,35 @@ def post_now_mode():
             logging.warning("Post review failed, using selected post without review")
             reviewed_post = selected_post
         
+        # Topic Diversity Check - Prevent repetitive content
+        logging.info("Checking topic diversity against recent posts...")
+        posts_data = load_posts_history()
+        recent_posts = posts_data.get("posts", [])
+        
+        is_diverse = analyze_topic_similarity_with_ai(reviewed_post, recent_posts)
+        if not is_diverse:
+            logging.warning("🚫 Post rejected: Too similar to recent posts. Skipping this cycle to maintain content diversity.")
+            return False
+        
+        logging.info("✅ Post passed diversity check - content is sufficiently different from recent posts")
+        
         # Post to Twitter
         logging.info("Posting to Twitter...")
-        success = post_tweet(reviewed_post)
+        tweet_id = post_tweet(reviewed_post)
+        success = tweet_id is not None
         
         if success:
             logging.info("Post successfully published!")
             logging.info(f"Posted content: {reviewed_post}")
+            
+            # Add to history
+            template_name = "unknown"  # Will be enhanced when we integrate template selection
+            personality_name = "unknown"  # Will be enhanced when we integrate personality selection
+            search_query = "trending content"  # Will be enhanced with actual search query
+            trending_topics = content_snippets[:3] if content_snippets else []
+            
+            add_post_to_history(reviewed_post, tweet_id, search_query, template_name, personality_name, trending_topics)
+            
             return True
         else:
             logging.error("Failed to post to Twitter")
@@ -1229,6 +1652,8 @@ def parse_arguments():
                        help='Generate and post immediately, then exit (no scheduling)')
     parser.add_argument('--fp', '--first-post', type=int, metavar='MINUTES',
                        help='Schedule first post after specified minutes from now (resets existing schedule)')
+    parser.add_argument('--ppd', '--posts-per-day', type=int, metavar='COUNT', default=5,
+                       help='Number of posts to schedule per day (default: 5, min: 1, max: 20)')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -1239,21 +1664,20 @@ if __name__ == "__main__":
         if args.post_now:
             # Immediate posting mode
             logging.info("Starting immediate post mode...")
-            success = post_now_mode()
-            if success:
+            tweet_id = post_now_mode()
+            if tweet_id:
                 logging.info("Immediate post completed successfully!")
             else:
                 logging.error("Immediate post failed!")
             logging.info("Exiting...")
         else:
-            # Normal scheduled mode
             logging.info("Starting scheduled mode...")
-            schedule_posts_smart(args.fp)  # Pass the --fp argument
-            
+            schedule_posts_smart(args.fp, args.ppd)  # Pass both --fp and --ppd arguments
+
             logging.info("Scheduler started. The tool will now run indefinitely, posting daily.")
             logging.info("Press Ctrl+C to stop the process.")
             
-            # Main loop to keep the script running and check for scheduled jobs
+            # Main scheduler loop
             try:
                 last_countdown_display = 0
                 while True:
@@ -1274,8 +1698,9 @@ if __name__ == "__main__":
                 logging.info("Restarting scheduler in 60 seconds...")
                 time.sleep(60)
                 # Restart scheduler with same parameters
-                schedule_posts_smart(args.fp)
+                schedule_posts_smart(args.fp, args.ppd)
             
     else:
         logging.critical("Tool failed to initialize. Please check the .env file and your network connection.")
     logging.info("---------------------------------------------")
+

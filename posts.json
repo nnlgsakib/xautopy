@@ -1,0 +1,53 @@
+{
+  "posts": [
+    {
+      "id": "1983037928222929297",
+      "content": "🚨Evernorth drops $1B on XRP! 🤯 388M coins acquired. Institution-fueled bull run BEGINNING? Volume surging! Whales active. Critical moment for #XRParmy. What's YOUR price prediction by EOY? 🚀 #XRP #Crypto",
+      "timestamp": "2025-10-28T05:08:27.022420+00:00",
+      "search_query": "trending content",
+      "template": "unknown",
+      "personality": "unknown",
+      "trending_topics": [
+        "Trend Insight 1: Here are 5 highly engaging and viral trends related to **Ripple XRP SEC settlement rumors and price volatility reaction** from the past 24-48 hours that would make excellent social media content:",
+        "Trend Insight 2: **1. Institutional $1 Billion XRP Accumulation by Evernorth**",
+        "Trend Insight 3: - **Core story:** Evernorth, a new U.S. institutional treasury company, has completed nearly $1 billion in XRP purchases within its first week, acquiring 388.7 million XRP and generating an estimated $75 million in unrealized gains already[5]."
+      ],
+      "character_count": 203,
+      "hashtags": [
+        "#XRParmy.",
+        "#XRP",
+        "#Crypto"
+      ]
+    },
+    {
+      "id": "1983038038268936511",
+      "content": "**Enhanced Post:**\n\nPrivacy-preserving AI on blockchain is EMERGING! 🔐 Building models where YOU own your data. Compute costs are a hurdle, but the potential is HUGE. What breakthroughs are you seeing? 👇 https://github.com/NLG-Sakib/SecureAI #PrivacyAI #Web3 #DataOwnership",
+      "timestamp": "2025-10-28T05:08:53.279472+00:00",
+      "search_query": "trending content",
+      "template": "unknown",
+      "personality": "unknown",
+      "trending_topics": [
+        "Trend Insight 1: In the past 24-48 hours, the crypto space has been dynamic, but specific trends related to Vitalik Buterin's DeSoc vision and the AI-crypto intersection are not directly mentioned in the provided search results. However, based on broader trends and recent developments, here are some engaging and viral content opportunities that can be related to these topics or are relevant to the crypto community in a broader sense.",
+        "Trend Insight 2: ## Trend 1: **Blockchain and AI Integration in DeFi**",
+        "Trend Insight 3: - **Core story/development**: The intersection of AI and blockchain is a growing trend, with AI tools beginning to enhance DeFi protocols by improving decision-making and risk assessment."
+      ],
+      "character_count": 273,
+      "hashtags": [
+        "#PrivacyAI",
+        "#Web3",
+        "#DataOwnership"
+      ]
+    }
+  ],
+  "metadata": {
+    "created_at": "2025-01-28T10:00:00Z",
+    "last_updated": "2025-10-28T05:08:53.279472+00:00",
+    "total_posts": 2,
+    "version": "1.0"
+  },
+  "settings": {
+    "max_history_days": 30,
+    "similarity_threshold": 0.7,
+    "min_topic_diversity_hours": 6
+  }
+}
