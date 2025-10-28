@@ -1225,19 +1225,24 @@ def initialize_gemini():
 
 # --- Scheduling Logic ---
 
-def load_schedule():
+def load_schedule(silent=False):
     """
     Loads the schedule from schedule.json file.
     Returns the schedule data or creates a new one if file doesn't exist.
+    
+    Args:
+        silent (bool): If True, suppresses info logging to avoid spam
     """
     try:
         if os.path.exists(SCHEDULE_FILE):
             with open(SCHEDULE_FILE, 'r') as f:
                 schedule_data = json.load(f)
-                logging.info("Loaded existing schedule from schedule.json")
+                if not silent:
+                    logging.info("Loaded existing schedule from schedule.json")
                 return schedule_data
         else:
-            logging.info("No existing schedule found, creating new one")
+            if not silent:
+                logging.info("No existing schedule found, creating new one")
             return create_new_schedule()
     except Exception as e:
         logging.error(f"Error loading schedule: {e}")
@@ -1746,7 +1751,7 @@ def get_next_post_countdown():
     Returns a formatted string with the countdown.
     """
     try:
-        schedule_data = load_schedule()
+        schedule_data = load_schedule(silent=True)  # Use silent mode to prevent logging spam
         if not schedule_data or 'posts' not in schedule_data:
             return "No posts scheduled"
         
@@ -1837,16 +1842,15 @@ if __name__ == "__main__":
             
             # Main scheduler loop
             try:
-                last_countdown_display = 0
+                import sys
                 while True:
                     schedule.run_pending()
                     
-                    # Display countdown every 30 seconds
-                    current_time = time.time()
-                    if current_time - last_countdown_display >= 30:
-                        countdown = get_next_post_countdown()
-                        logging.info(f"📅 {countdown}")
-                        last_countdown_display = current_time
+                    # Display real-time countdown that updates every second
+                    countdown = get_next_post_countdown()
+                    # Use carriage return to overwrite the same line
+                    sys.stdout.write(f"\r📅 {countdown}")
+                    sys.stdout.flush()
                     
                     time.sleep(1)
             except KeyboardInterrupt:
